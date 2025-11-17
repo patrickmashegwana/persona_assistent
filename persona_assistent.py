@@ -47,3 +47,4 @@ company = CompanyData()
 
 # Placeholder text block to confirm running
 st.info("App initialized. Ready to add forms, scoring logic, and pitch generation.")
+"working on this"
