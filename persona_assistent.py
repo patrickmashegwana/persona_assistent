@@ -1,50 +1,43 @@
-import streamlit as st
-from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any
-import uuid
-import pandas as pd
+# app.py — simple Flask + SQLAlchemy + SQLite persona app
+# Run: pip install flask flask_sqlalchemy
+# Then: python app.py
+from flask import Flask, request, jsonify, redirect, url_for, render_template_string
+from flask_sqlalchemy import SQLAlchemy
 import os
-from dotenv import load_dotenv
+import json
 
-# Load environment variables
-load_dotenv()
+# --- App / DB setup ---
+app = Flask(__name__)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "personas.db")
+app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{DB_PATH}"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+db = SQLAlchemy(app)
 
-# -----------------------------------
-# Basic Pydantic Models
-# -----------------------------------
-class CompanyData(BaseModel):
-    name: str = "My Startup"
-    description: str = "Cloud optimization services"
-    location: str = "Berlin, Germany"
-    ideal_income_eur: int = Field(40000, ge=0)
-    geography: str = "EU"
+# --- Simple model ---
+class Persona(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String, nullable=False)
+    age = db.Column(db.Integer, nullable=True)
+    country = db.Column(db.String, nullable=True)
+    job_title = db.Column(db.String, nullable=True)
+    annual_income = db.Column(db.Float, nullable=True)
+    interests = db.Column(db.String, nullable=True)
+    score = db.Column(db.Integer, nullable=True)
+    is_ideal = db.Column(db.Boolean, nullable=True)
+    reasons_json = db.Column(db.Text, nullable=True)  # store reasons as JSON text
 
-class ClientData(BaseModel):
-    name: str
-    age: Optional[int]
-    country: str
-    job_title: Optional[str]
-    annual_income_eur: Optional[float]
-    interests: Optional[str]
-    notes: Optional[str] = None
-
-# -----------------------------------
-# Initialize in-memory persona store
-# -----------------------------------
-if "personas" not in st.session_state:
-    st.session_state.personas = []
-
-# -----------------------------------
-# Simple UI Header
-# -----------------------------------
-st.set_page_config(page_title="Personan Assistant", layout="wide")
-st.title("Personan Assistant — Starter App")
-
-st.markdown("This is a minimal starting point. Build on top of this.")
-
-# Placeholder company object
-company = CompanyData()
-
-# Placeholder text block to confirm running
-st.info("App initialized. Ready to add forms, scoring logic, and pitch generation.")
-"working on this"
+    def to_dict(self):
+        data = {
+            "id": self.id,
+            "name": self.name,
+            "age": self.age,
+            "country": self.country,
+            "job_title": self.job_title,
+            "annual_income": self.annual_income,
+            "interests": self.interests,
+            "score": self.score,
+            "is_ideal": bool(self.is_ideal),
+            "reasons": json.loads(self.reasons_json) if self.reasons_json else []
+        }
+        return data
