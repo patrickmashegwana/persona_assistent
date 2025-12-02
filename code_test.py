@@ -1,7 +1,19 @@
+import os
+
+import requests
 from flask import Flask, request, jsonify, abort
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Column, Integer, Float, Text, String
 from sqlalchemy.exc import IntegrityError
+
+from openai import OpenAI
+"""client = OpenAI()
+
+response = client.responses.create(
+    model="gpt-5-nano",
+    input="Write a one-sentence bedtime story about a unicorn."
+)
+print(response.output_text)"""
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///personas.db'
@@ -106,5 +118,93 @@ def delete_persona(persona_id):
     db.session.commit()
     return jsonify({'message': 'deleted'}), 200
 
+
+# --- New endpoint: send persona + user message to OpenAI and return the AI response ---
+@app.route('/personas/<int:persona_id>/prompt', methods=['POST'])
+def persona_prompt(persona_id):
+    """POST /personas/<id>/prompt
+    Body JSON: {"message": "..."}
+
+        The endpoint:
+        - looks up the persona by id
+        - builds a chat message that contains the persona details and the user's message
+        - calls the OpenAI Chat Completions endpoint (expects OPENAI_API_KEY in env)
+        - returns the AI's reply as JSON
+"""
+    data = request.get_json() or {}
+    user_message = data.get('message')
+    if not user_message:
+        return jsonify({'error': 'message field is required in the request body'}), 400
+
+
+    persona = Persona.query.get(persona_id)
+    if not persona:
+        return jsonify({'error': 'persona not found'}), 404
+
+# Build the system prompt with persona details
+    persona_texts = [f"Name: {persona.name}"]
+    if persona.location:
+        persona_texts.append(f"Location: {persona.location}")
+    if persona.annual_income is not None:
+        persona_texts.append(f"Annual Income: {persona.annual_income}")
+    if persona.extras:
+        persona_texts.append(f"Extras: {persona.extras}")
+
+
+    system_prompt = (   "You are an assistant that should respond as if you are representing the following company/persona. "
+    "Use the persona information below to tailor your tone and content."
+ " + "
+    ".join(persona_texts)"
+    )
+
+# Prepare messages for OpenAI chat endpoint
+    messages = [
+    {"role": "system", "content": system_prompt},
+    {"role": "user", "content": user_message}
+    ]
+
+
+    openai_api_key = os.environ.get('OPENAI_API_KEY')
+    if not openai_api_key:
+        return jsonify({'error': 'OPENAI_API_KEY not set in environment'}), 500
+
+# Call OpenAI Chat Completions
+    url = 'https://api.openai.com/v1/chat/completions'
+    payload = {
+    'model': 'gpt-4o-mini',
+    'messages': messages,
+    'max_tokens': 500,
+    'temperature': 0.7
+    }
+    headers = {
+    'Authorization': f'Bearer {openai_api_key}',
+    'Content-Type': 'application/json'
+    }
+
+    try:
+        resp = requests.post(url, headers=headers, json=payload, timeout=30)
+    except requests.RequestException as e:
+        return jsonify({'error': 'failed to reach OpenAI API', 'details': str(e)}), 502
+
+
+    if resp.status_code != 200:
+        # forward error details from OpenAI
+        try:
+            return jsonify({'error': 'openai error', 'details': resp.json()}), resp.status_code
+        except ValueError:
+            return jsonify({'error': 'openai error', 'details': resp.text}), resp.status_code
+
+
+    try:
+        j = resp.json()
+        ai_text = j['choices'][0]['message']['content']
+    except Exception as e:
+        return jsonify({'error': 'unexpected OpenAI response', 'details': str(e), 'raw': resp.text}), 502
+
+
+    return jsonify({'ai_response': ai_text}), 200
+
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5005)
+
