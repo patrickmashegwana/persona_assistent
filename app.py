@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
 from openai import OpenAI
 from sqlalchemy import Column, Integer, Float, Text, String
@@ -47,6 +47,12 @@ class Persona(db.Model):
 # Ensure DB and tables exist
 with app.app_context():
     db.create_all()
+
+
+# --- Web UI Route ---
+@app.route('/')
+def index():
+    return render_template('index.html')
 
 
 # --- CRUD endpoints ---
@@ -122,7 +128,7 @@ def update_persona(persona_id):
 
 @app.route('/personas/<int:persona_id>', methods=['DELETE'])
 def delete_persona(persona_id):
-    p = db.session.query.get(persona_id)
+    p = Persona.query.get(persona_id)
     if not p:
         return jsonify({'error': 'not found'}), 404
     db.session.delete(p)
@@ -198,4 +204,4 @@ def persona_prompt(persona_id):
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5005)
+    app.run(debug=True, host='0.0.0.0', port=5005, use_reloader=False)
