@@ -1,6 +1,3 @@
-import os
-
-import requests
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
@@ -10,6 +7,9 @@ from sqlalchemy.exc import IntegrityError
 
 # Load .env file
 load_dotenv()
+
+# Initialize OpenAI
+client = OpenAI()
 
 """client = OpenAI()
 
@@ -122,7 +122,7 @@ def update_persona(persona_id):
 
 @app.route('/personas/<int:persona_id>', methods=['DELETE'])
 def delete_persona(persona_id):
-    p = Persona.query.get(persona_id)
+    p = db.session.query.get(persona_id)
     if not p:
         return jsonify({'error': 'not found'}), 404
     db.session.delete(p)
@@ -150,7 +150,7 @@ def persona_prompt(persona_id):
     if not user_message:
         return jsonify({'error': 'message field is required in the request body'}), 400
 
-    persona = Persona.query.get(persona_id)
+    persona = db.session.query(Persona).filter_by(id=persona_id).first()
     if not persona:
         return jsonify({'error': 'persona not found'}), 404
 
@@ -179,39 +179,20 @@ def persona_prompt(persona_id):
         {"role": "user", "content": user_message}
     ]
 
-    openai_api_key = os.environ.get('OPENAI_API_KEY')
-    if not openai_api_key:
-        return jsonify({'error': 'OPENAI_API_KEY not set in environment'}), 500
-
-    # Call OpenAI Chat Completions
-    url = 'https://api.openai.com/v1/chat/completions'
-    payload = {
-        'model': 'gpt-5-mini',
-        'messages': messages,
-        'max_completion_tokens': 500
-    }
-    headers = {
-        'Authorization': f'Bearer {openai_api_key}',
-        'Content-Type': 'application/json'
-    }
-
+    # Call OpenAI Chat Completions using the OpenAI client
     try:
-        resp = requests.post(url, headers=headers, json=payload, timeout=30)
-    except requests.RequestException as e:
-        return jsonify({'error': 'failed to reach OpenAI API', 'details': str(e)}), 502
-
-    if resp.status_code != 200:
-        # forward error details from OpenAI
-        try:
-            return jsonify({'error': 'openai error', 'details': resp.json()}), resp.status_code
-        except ValueError:
-            return jsonify({'error': 'openai error', 'details': resp.text}), resp.status_code
-
-    try:
-        j = resp.json()
-        ai_text = j['choices'][0]['message']['content']
+        response = client.chat.completions.create(
+            model='gpt-5-mini',
+            messages=messages,
+            max_completion_tokens=2000  # Increased to allow for reasoning + response
+        )
+        print(f"Full response object: {response}")
+        print(f"Response choices: {response.choices}")
+        ai_text = response.choices[0].message.content
+        print(f"AI text content: {ai_text}")
     except Exception as e:
-        return jsonify({'error': 'unexpected OpenAI response', 'details': str(e), 'raw': resp.text}), 502
+        print(f"OpenAI API Error: {str(e)}")
+        return jsonify({'error': 'failed to reach OpenAI API', 'details': str(e)}), 502
 
     return jsonify({'ai_response': ai_text}), 200
 
