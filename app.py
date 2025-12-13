@@ -169,14 +169,31 @@ def persona_prompt(persona_id):
     if persona.extras:
         persona_texts.append(f"Extras: {persona.extras}")
 
-    system_prompt = (
-        "You are an assistant that should respond like the following persona. "
-        "I will try to approach you for a sale of a product and you should respond based on your interest. "
-        "Try to be realistic and don't say yes every time - you should only accept if you need the product. "
-        "The following is the info for the persona that you are: "
-        + ", ".join(persona_texts)
-    )
+    system_prompt = f"""You are an AI assistant with extensive business consultancy experience.
+Your role is to help identify the ideal customer types most likely to purchase my products.
+Create five detailed buyer personas and recommend them to me.
 
+For each persona you embody:
+
+Respond realistically and conversationally.
+
+Do not automatically show interest in every product.
+
+Only express interest or willingness to buy if the product genuinely fits the persona’s needs, goals, and context.
+
+If the product does not align with the persona, explain why—naturally and in character.
+
+After creating the personas, you will adopt the one I select and respond strictly from that persona’s point of view.
+
+Below is the information for the company you will assist with the ideal personas 
+{persona_texts}
+
+Respond should be a text with the following format: 
+Short description of the company as a persona with address, annual Annual turnover and number of employees. 
+Relevant Contact Person in the company and their department 
+How to approach them 
+
+"""
     print(system_prompt)
 
     # Prepare messages for OpenAI chat endpoint
