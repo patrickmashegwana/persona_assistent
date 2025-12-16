@@ -55,6 +55,7 @@ def index():
     return render_template('index.html')
 
 
+
 # --- CRUD endpoints ---
 
 @app.route('/personas', methods=['POST'])
@@ -151,8 +152,6 @@ def persona_prompt(persona_id):
     data = request.get_json() or {}
     user_message = data.get('message')
 
-    print(user_message)
-
     if not user_message:
         return jsonify({'error': 'message field is required in the request body'}), 400
 
@@ -194,7 +193,6 @@ Relevant Contact Person in the company and their department
 How to approach them 
 
 """
-    print(system_prompt)
 
     # Prepare messages for OpenAI chat endpoint
     messages = [
@@ -207,12 +205,12 @@ How to approach them
         response = client.chat.completions.create(
             model='gpt-5-mini',
             messages=messages,
-            max_completion_tokens=2000  # Increased to allow for reasoning + response
+            # max_completion_tokens=2000  # Increased to allow for reasoning + response
         )
-        print(f"Full response object: {response}")
-        print(f"Response choices: {response.choices}")
+
         ai_text = response.choices[0].message.content
         print(f"AI text content: {ai_text}")
+
     except Exception as e:
         print(f"OpenAI API Error: {str(e)}")
         return jsonify({'error': 'failed to reach OpenAI API', 'details': str(e)}), 502

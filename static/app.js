@@ -142,6 +142,7 @@ async function sendMessage() {
         });
 
         const data = await response.json();
+        console.log(data)
 
         // Remove loading message
         loadingMsg.remove();
